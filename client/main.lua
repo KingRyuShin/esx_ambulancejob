@@ -468,51 +468,113 @@ end
 
 function OpenCloakroomMenu()
 
-	ESX.UI.Menu.Open(
-		'default', GetCurrentResourceName(), 'cloakroom',
-		{
-			title		= _U('cloakroom'),
-			align		= 'top-left',
-			elements = {
-				{label = _U('ems_clothes_civil'), value = 'citizen_wear'},
-				{label = _U('ems_clothes_ems'), value = 'ambulance_wear'},
-			},
-		},
-		function(data, menu)
+  ESX.UI.Menu.Open(
+    'default', GetCurrentResourceName(), 'cloakroom',
+    {
+      title    = _U('cloakroom'),
+      align    = 'top-left',
+      elements = {
+        {label = _U('ems_clothes_civil'), value = 'citizen_wear'},
+        {label = _U('ems_clothes_ems'), value = 'ambulance_wear'},
+      },
+    },
+    function(data, menu)
 
-			menu.close()
+      menu.close()
 
-			if data.current.value == 'citizen_wear' then
+      if data.current.value == 'citizen_wear' then
 
-				ESX.TriggerServerCallback('esx_skin:getPlayerSkin', function(skin, jobSkin)
-					TriggerEvent('skinchanger:loadSkin', skin)
-				end)
+        ESX.TriggerServerCallback('esx_skin:getPlayerSkin', function(skin, jobSkin)
+          TriggerEvent('skinchanger:loadSkin', skin)
+        end)
 
-			end
+			if Config.MaxInService ~= -1 then
 
-			if data.current.value == 'ambulance_wear' then
+				ESX.TriggerServerCallback('esx_service:isInService', function(isInService)
+					if isInService then
 
-				ESX.TriggerServerCallback('esx_skin:getPlayerSkin', function(skin, jobSkin)
+					playerInService = false
+					
+						local notification = {
+							title    = _U('service_anonunce'),
+							subject  = '',
+							msg      = _U('service_out_announce', GetPlayerName(PlayerId())),
+							iconType = 1
+						}
 
-					if skin.sex == 0 then
-						TriggerEvent('skinchanger:loadClothes', skin, jobSkin.skin_male)
-					else
-						TriggerEvent('skinchanger:loadClothes', skin, jobSkin.skin_female)
+						TriggerServerEvent('esx_service:notifyAllInService', notification, 'ambulance')
+						TriggerServerEvent('esx_service:disableService', 'ambulance')
+						TriggerEvent('esx_policejob:updateBlip')
+						ESX.ShowNotification(_U('service_out'))
 					end
+				end, 'ambulance')
+			end		
+		menu.close()
+      end
 
-				end)
+		if Config.MaxInService ~= -1 and data.current.value ~= 'citizen_wear' then
+			local serviceOk = 'waiting'
 
+			ESX.TriggerServerCallback('esx_service:isInService', function(isInService)
+				if not isInService then
+
+					ESX.TriggerServerCallback('esx_service:enableService', function(canTakeService, maxInService, inServiceCount)
+						if not canTakeService then
+							ESX.ShowNotification(_U('service_max', inServiceCount, maxInService))
+						else
+							serviceOk = true
+							playerInService = true
+							local notification = {
+								title    = _U('service_anonunce'),
+								subject  = '',
+								msg      = _U('service_in_announce', GetPlayerName(PlayerId())),
+								iconType = 1
+							}
+	
+							TriggerServerEvent('esx_service:notifyAllInService', notification, 'ambulance')
+							--TriggerEvent('esx_policejob:updateBlip')
+							ESX.ShowNotification(_U('service_in'))
+						end
+					end, 'ambulance')
+
+				else
+					serviceOk = true
+				end
+			end, 'ambulance')
+
+			while type(serviceOk) == 'string' do
+				Citizen.Wait(5)
 			end
 
-			CurrentAction		= 'ambulance_actions_menu'
-			CurrentActionMsg	= _U('open_menu')
-			CurrentActionData	= {}
+			-- if we couldn't enter service don't let the player get changed
+			if not serviceOk then
+				return
+			end
+		end	  
+	  
+      if data.current.value == 'ambulance_wear' then
 
-		end,
-		function(data, menu)
-			menu.close()
-		end
-	)
+        ESX.TriggerServerCallback('esx_skin:getPlayerSkin', function(skin, jobSkin)
+
+          if skin.sex == 0 then
+            TriggerEvent('skinchanger:loadClothes', skin, jobSkin.skin_male)
+          else
+            TriggerEvent('skinchanger:loadClothes', skin, jobSkin.skin_female)
+          end
+
+        end)
+
+      end
+
+      CurrentAction     = 'ambulance_actions_menu'
+      CurrentActionMsg  = _U('open_menu')
+      CurrentActionData = {}
+
+    end,
+    function(data, menu)
+      menu.close()
+    end
+  )
 
 end
 
@@ -566,10 +628,29 @@ function OpenVehicleSpawnerMenu()
 			elements	= Config.AuthorizedVehicles
 		}, function(data, menu)
 			menu.close()
-			ESX.Game.SpawnVehicle(data.current.model, Config.Zones.VehicleSpawnPoint.Pos, 230.0, function(vehicle)
-				local playerPed = PlayerPedId()
-				TaskWarpPedIntoVehicle(playerPed, vehicle, -1)
-			end)
+				
+				if Config.MaxInService == -1 then
+
+					ESX.Game.SpawnVehicle(data.current.model, Config.Zones.VehicleSpawnPoint.Pos, 270.0, function(vehicle)
+					local playerPed = GetPlayerPed(-1)
+					TaskWarpPedIntoVehicle(playerPed, vehicle, -1)
+					AddVehicleKeys(vehicle)
+				end)
+				else
+
+					ESX.TriggerServerCallback('esx_service:isInService', function(isInService)
+						if isInService then
+
+					ESX.Game.SpawnVehicle(data.current.model, Config.Zones.VehicleSpawnPoint.Pos, 270.0, function(vehicle)
+					local playerPed = GetPlayerPed(-1)
+					TaskWarpPedIntoVehicle(playerPed, vehicle, -1)
+					AddVehicleKeys(vehicle)
+							end)
+						else
+							ESX.ShowNotification(_U('service_not'))
+						end
+					end, 'ambulance')
+				end
 		end, function(data, menu)
 			menu.close()
 			CurrentAction		= 'vehicle_spawner_menu'
@@ -635,6 +716,17 @@ AddEventHandler('esx_phone:loaded', function(phoneNumber, contacts)
 
 	TriggerEvent('esx_phone:addSpecialContact', specialContact.name, specialContact.number, specialContact.base64Icon)
 
+end)
+
+-- don't show dispatches if the player isn't in service
+AddEventHandler('esx_phone:cancelMessage', function(dispatchNumber)
+
+	if type(PlayerData.job.name) == 'string' and PlayerData.job.name == 'ambulance' and PlayerData.job.name == dispatchNumber then
+		-- if esx_service is enabled
+		if Config.MaxInService ~= -1 and not playerInService then
+			CancelEvent()
+		end
+	end
 end)
 
 AddEventHandler('esx:onPlayerDeath', function(reason)
@@ -900,9 +992,15 @@ Citizen.CreateThread(function()
 
 		end
 
-		if IsControlJustReleased(0, Keys['F6']) and PlayerData.job ~= nil and PlayerData.job.name == 'ambulance' and not IsDead then
-			OpenMobileAmbulanceActionsMenu()
-		end
+    if IsControlJustReleased(0, Keys['F5']) and PlayerData.job ~= nil and PlayerData.job.name == 'ambulance' then
+			if Config.MaxInService == -1 then
+				OpenMobileAmbulanceActionsMenu()
+			elseif playerInService then
+				OpenMobileAmbulanceActionsMenu()
+			else
+				ESX.ShowNotification(_U('service_not'))
+			end	
+    end
 
 	end
 end)
@@ -912,6 +1010,17 @@ AddEventHandler('esx_ambulancejob:requestDeath', function()
 	if Config.AntiCombatLog then
 		Citizen.Wait(5000)
 		SetEntityHealth(PlayerPedId(), 0)
+	end
+end)
+
+AddEventHandler('onResourceStop', function(resource)
+	if resource == GetCurrentResourceName() then
+		TriggerEvent('esx_phone:removeSpecialContact', 'ambulance')
+		TriggerServerEvent('esx_service:disableService', 'ambulance')
+
+		if Config.MaxInService ~= -1 then
+			TriggerServerEvent('esx_service:disableService', 'ambulance')
+		end		
 	end
 end)
 
