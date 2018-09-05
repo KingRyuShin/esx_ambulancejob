@@ -7,6 +7,7 @@ Config.ReviveReward               = 700  -- revive reward, set to 0 if you don't
 Config.AntiCombatLog              = true -- enable anti-combat logging?
 Config.LoadIpl                    = true -- disable if you're using fivem-ipl or other IPL loaders
 Config.Locale                     = 'fr'
+Config.MaxInService               = -1
 
 local second = 1000
 local minute = 60 * second
