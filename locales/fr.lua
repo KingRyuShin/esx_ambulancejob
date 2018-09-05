@@ -9,6 +9,14 @@ Locales['fr'] = {
   ['store_veh'] = 'appuyez sur ~INPUT_CONTEXT~ pour ranger le véhicule',
   ['ambulance'] = 'ambulance',
   ['helicopter'] = 'hélicoptère',
+  -- Service Text
+  ['service_max'] = 'Vous ne pouvez pas entrer en service, maximum d\'ambulancier en service: %s/%s',
+  ['service_not'] = 'Vous n\'êtes pas en service! Allez prendre votre tenu de travail.',
+  ['service_anonunce'] = 'Service information',
+  ['service_in'] = 'Vous êtes maintenant en service!',
+  ['service_in_announce'] = 'Ambulancier ~y~%s~s~ à pris son service!',
+  ['service_out'] = 'Vous n\'êtes plus en service.',
+  ['service_out_announce'] = 'Ambulancier ~y~%s~s~ à pris la fin de son service.',	
   -- Action Menu
   ['hospital'] = 'hôpital',
   ['revive_inprogress'] = 'réanimation en cours',
